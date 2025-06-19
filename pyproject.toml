@@ -1,0 +1,107 @@
+[tool.poetry]
+name = "affiliate-automation"
+version = "0.1.0"
+description = "Flexible affiliate marketing automation system"
+authors = ["Parag Kamble <kamble.parag@gmail.com>"]
+readme = "README.md"
+packages = [
+    { include = "affiliate_automation", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.31.0"
+beautifulsoup4 = "^4.12.2"
+selenium = "^4.15.2"
+python-dotenv = "^1.0.0"
+sqlalchemy = "^2.0.23"
+alembic = "^1.13.0"
+pydantic = "^2.5.0"
+rich = "^13.7.0"
+schedule = "^1.2.0"
+tweepy = "^4.14.0"
+openai = "^1.3.5"
+pandas = "^2.1.3"
+lxml = "^4.9.3"
+
+pydantic-settings = "^2.9.1"
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-cov = "^4.1.0"
+black = "^23.11.0"
+flake8 = "^6.1.0"
+mypy = "^1.7.1"
+pre-commit = "^3.5.0"
+isort = "^5.13.2"
+bandit = "^1.7.5"
+flake8-docstrings = "^1.7.0"
+flake8-bugbear = "^24.1.17"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]
+skip-string-normalization = true
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+skip = [".venv", "venv", "build", "dist"]
+skip_glob = ["*/migrations/*"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+no_strict_optional = true
+disable_error_code = ["import", "call-arg"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*", "*/migrations/*", "*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == '__main__':",
+    "if TYPE_CHECKING:",
+]
+
+[tool.poetry.scripts]
+affiliate-automation = "affiliate_automation.main:main"
