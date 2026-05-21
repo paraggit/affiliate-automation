@@ -4,6 +4,7 @@ import requests
 
 from ...core.base_affiliate import BaseAffiliateProvider, Product
 from ...utils.logger import get_logger
+from ...utils.retry import retry_on_failure
 
 logger = get_logger(__name__)
 
@@ -25,6 +26,13 @@ class FlipkartAffiliate(BaseAffiliateProvider):
     def _get_headers(self) -> Dict[str, str]:
         return {"Fk-Affiliate-Id": self.affiliate_id, "Fk-Affiliate-Token": self.affiliate_token}
 
+    @retry_on_failure(max_retries=3, exceptions=(requests.RequestException,))
+    def _api_get(self, url: str, params: Optional[Dict] = None) -> Dict:
+        """Make an API GET request with retry logic."""
+        response = requests.get(url, headers=self._get_headers(), params=params, timeout=30)
+        response.raise_for_status()
+        return response.json()
+
     def search_products(self, query: str, max_results: int = 10, **kwargs) -> List[Product]:
         """Search Flipkart products."""
         products = []
@@ -32,16 +40,13 @@ class FlipkartAffiliate(BaseAffiliateProvider):
             url = f"{self.BASE_URL}/search/json"
             params = {"query": query, "resultCount": max_results}
 
-            response = requests.get(url, headers=self._get_headers(), params=params, timeout=30)
+            data = self._api_get(url, params=params)
+            products_data = data.get("products", [])
 
-            if response.status_code == 200:
-                data = response.json()
-                products_data = data.get("products", [])
-
-                for item in products_data:
-                    product = self._parse_product(item)
-                    if product:
-                        products.append(product)
+            for item in products_data:
+                product = self._parse_product(item)
+                if product:
+                    products.append(product)
 
         except Exception as e:
             logger.error(f"Error searching Flipkart products: {e}")
@@ -53,13 +58,26 @@ class FlipkartAffiliate(BaseAffiliateProvider):
         try:
             product_info = data.get("productBaseInfoV1", {})
 
+            selling_price = float(
+                product_info.get("flipkartSellingPrice", {}).get("amount", 0)
+            )
+            original_price = float(
+                product_info.get("maximumRetailPrice", {}).get("amount", 0)
+            )
+            discount = (
+                round((original_price - selling_price) / original_price * 100, 1)
+                if original_price > 0
+                else None
+            )
+
             return Product(
                 id=product_info.get("productId", ""),
                 title=product_info.get("title", ""),
-                price=float(product_info.get("flipkartSellingPrice", {}).get("amount", 0)),
-                original_price=float(product_info.get("maximumRetailPrice", {}).get("amount", 0)),
+                price=selling_price,
+                original_price=original_price,
+                discount_percentage=discount,
                 url=product_info.get("productUrl", ""),
-                affiliate_url=product_info.get("productUrl", ""),  # Already contains affiliate ID
+                affiliate_url=product_info.get("productUrl", ""),
                 image_url=product_info.get("imageUrls", {}).get("400x400", ""),
                 category=product_info.get("categoryPath", ""),
                 description=product_info.get("productDescription", ""),
@@ -74,16 +92,11 @@ class FlipkartAffiliate(BaseAffiliateProvider):
         """Get detailed product information from Flipkart."""
         try:
             url = f"{self.BASE_URL}/products/{product_id}"
-            response = requests.get(url, headers=self._get_headers(), timeout=30)
-
-            if response.status_code == 200:
-                data = response.json()
-                return self._parse_product(data)
-
+            data = self._api_get(url)
+            return self._parse_product(data)
         except Exception as e:
             logger.error(f"Error getting Flipkart product details: {e}")
-
-        return None
+            return None
 
     def generate_affiliate_link(self, product_url: str) -> str:
         """Flipkart URLs already contain affiliate information when fetched via API."""
@@ -93,21 +106,18 @@ class FlipkartAffiliate(BaseAffiliateProvider):
         """Get trending products from Flipkart."""
         try:
             url = f"{self.BASE_URL}/offers/v1/top/json"
-            response = requests.get(url, headers=self._get_headers(), timeout=30)
-
-            if response.status_code == 200:
-                data = response.json()
-                # Parse top offers data
-                return self._parse_offers(data)
-
+            data = self._api_get(url)
+            return self._parse_offers(data)
         except Exception as e:
             logger.error(f"Error getting Flipkart trending products: {e}")
-
-        return []
+            return []
 
     def _parse_offers(self, data: Dict[str, Any]) -> List[Product]:
         """Parse Flipkart offers/deals data."""
         products = []
-        # Implementation would parse the offers response
-        # This is a placeholder
+        offers_list = data.get("topOffersList", [])
+        for offer in offers_list:
+            product = self._parse_product(offer)
+            if product:
+                products.append(product)
         return products

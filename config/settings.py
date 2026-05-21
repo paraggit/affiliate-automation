@@ -1,43 +1,37 @@
-import os
 from pathlib import Path
-from typing import Any, Dict
 
-from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
-
-load_dotenv()
 
 
 class Settings(BaseSettings):
+    """Application settings loaded from environment variables and .env file."""
+
     # Amazon Settings
-    amazon_associate_tag: str = os.getenv("AMAZON_ASSOCIATE_TAG", "")
-    amazon_access_key: str = os.getenv("AMAZON_ACCESS_KEY", "")
-    amazon_secret_key: str = os.getenv("AMAZON_SECRET_KEY", "")
+    amazon_associate_tag: str = ""
+    amazon_access_key: str = ""
+    amazon_secret_key: str = ""
 
     # Flipkart Settings
-    flipkart_affiliate_id: str = os.getenv("FLIPKART_AFFILIATE_ID", "")
-    flipkart_affiliate_token: str = os.getenv("FLIPKART_AFFILIATE_TOKEN", "")
+    flipkart_affiliate_id: str = ""
+    flipkart_affiliate_token: str = ""
 
     # Database
-    database_url: str = os.getenv("DATABASE_URL", "sqlite:///affiliate_data.db")
+    database_url: str = "sqlite:///affiliate_data.db"
 
     # Social Media
-    twitter_api_key: str = os.getenv("TWITTER_API_KEY", "")
-    twitter_api_secret: str = os.getenv("TWITTER_API_SECRET", "")
-    twitter_access_token: str = os.getenv("TWITTER_ACCESS_TOKEN", "")
-    twitter_access_token_secret: str = os.getenv("TWITTER_ACCESS_TOKEN_SECRET", "")
+    twitter_api_key: str = ""
+    twitter_api_secret: str = ""
+    twitter_access_token: str = ""
+    twitter_access_token_secret: str = ""
 
     # OpenAI
-    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    openai_api_key: str = ""
 
     # General Settings
     log_level: str = "INFO"
     base_path: Path = Path(__file__).parent.parent
 
-    class Config:
-        """Configuration class for env settings."""
-
-        env_file = ".env"
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
 settings = Settings()

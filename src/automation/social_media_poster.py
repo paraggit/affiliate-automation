@@ -1,9 +1,9 @@
+import tempfile
 import time
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import requests
 import schedule
-import tweepy
 
 from ..core.base_affiliate import Product
 from ..utils.logger import get_logger
@@ -23,6 +23,8 @@ class SocialMediaPoster:
     def _setup_twitter(self):
         """Setup Twitter API client."""
         try:
+            import tweepy
+
             auth = tweepy.OAuthHandler(
                 self.config.get("twitter_api_key"), self.config.get("twitter_api_secret")
             )
@@ -44,9 +46,13 @@ class SocialMediaPoster:
 
         try:
             if image_url:
-                # Download and upload image
-                # For production, implement proper image handling
-                self.twitter_api.update_status(content)
+                response = requests.get(image_url, timeout=15)
+                response.raise_for_status()
+                with tempfile.NamedTemporaryFile(suffix=".jpg") as tmp:
+                    tmp.write(response.content)
+                    tmp.flush()
+                    media = self.twitter_api.media_upload(tmp.name)
+                    self.twitter_api.update_status(content, media_ids=[media.media_id])
             else:
                 self.twitter_api.update_status(content)
 
@@ -60,10 +66,11 @@ class SocialMediaPoster:
     def schedule_product_posts(self, products: List[Product], posts_per_day: int = 3):
         """Schedule automatic posting of products."""
         post_times = ["09:00", "14:00", "19:00"][:posts_per_day]
+        product_queue = list(products)
 
         def post_product():
-            if products:
-                product = products.pop(0)
+            if product_queue:
+                product = product_queue.pop(0)
                 content = self.content_generator.generate_social_media_post(product, "twitter")
                 self.post_to_twitter(content, product.image_url)
 
@@ -77,4 +84,4 @@ class SocialMediaPoster:
         logger.info("Starting social media scheduler...")
         while True:
             schedule.run_pending()
-            time.sleep(60)  # Check every minute
+            time.sleep(60)

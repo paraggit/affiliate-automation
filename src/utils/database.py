@@ -1,13 +1,14 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import Column, DateTime, Float, Integer, String, Text, create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from ..core.base_affiliate import Product
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 class ProductModel(Base):
@@ -26,7 +27,7 @@ class ProductModel(Base):
     review_count = Column(Integer)
     category = Column(String)
     description = Column(Text)
-    last_updated = Column(DateTime, default=datetime.utcnow)
+    last_updated = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_product(self) -> Product:
         return Product(
@@ -57,8 +58,7 @@ class Database:
 
     def save_product(self, product: Product):
         """Save or update product in database."""
-        session = self.SessionLocal()
-        try:
+        with self.SessionLocal() as session:
             existing = (
                 session.query(ProductModel)
                 .filter_by(id=product.id, platform=product.platform)
@@ -66,7 +66,6 @@ class Database:
             )
 
             if existing:
-                # Update existing product
                 existing.title = product.title
                 existing.price = product.price
                 existing.original_price = product.original_price
@@ -78,9 +77,8 @@ class Database:
                 existing.review_count = product.review_count
                 existing.category = product.category
                 existing.description = product.description
-                existing.last_updated = datetime.utcnow()
+                existing.last_updated = datetime.now(timezone.utc)
             else:
-                # Create new product
                 new_product = ProductModel(
                     id=product.id,
                     platform=product.platform,
@@ -99,33 +97,21 @@ class Database:
                 session.add(new_product)
 
             session.commit()
-        except Exception as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
 
     def get_products(self, platform: Optional[str] = None) -> List[Product]:
         """Get products from database."""
-        session = self.SessionLocal()
-        try:
+        with self.SessionLocal() as session:
             query = session.query(ProductModel)
             if platform:
                 query = query.filter_by(platform=platform)
 
-            products = [p.to_product() for p in query.all()]
-            return products
-        finally:
-            session.close()
+            return [p.to_product() for p in query.all()]
 
     def get_product(self, product_id: str, platform: str) -> Optional[Product]:
         """Get single product from database."""
-        session = self.SessionLocal()
-        try:
+        with self.SessionLocal() as session:
             product_model = (
                 session.query(ProductModel).filter_by(id=product_id, platform=platform).first()
             )
 
             return product_model.to_product() if product_model else None
-        finally:
-            session.close()
